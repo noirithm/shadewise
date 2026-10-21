@@ -1,5 +1,5 @@
 import { clearConsent, readConsent, saveConsent } from "./consent";
-import { analyzePhoto } from "./gate/analyze";
+import { analyzePhoto, type GateReport } from "./gate/analyze";
 import { fileToJpeg, renderToJpeg, type PreparedPhoto } from "./image";
 import { checkFileBasics, isTooSmall } from "./imageCheck";
 import { initialState, reduce, type WidgetEvent, type WidgetState } from "./machine";
@@ -267,6 +267,7 @@ export class ShadeWiseWidget extends HTMLElement {
       if (report.photo) this.replacePhoto(report.photo);
       this.autoFramed = !!report.autoFramed;
       this.debugText = this.debugOn ? JSON.stringify(report.debug, null, 2) : null;
+      this.emitDebug(report);
       if (report.result.passed) {
         this.dispatch({ type: "GATE_PASSED" });
       } else {
@@ -277,6 +278,27 @@ export class ShadeWiseWidget extends HTMLElement {
       if (stale()) return;
       this.dispatch({ type: "GATE_UNAVAILABLE" });
     }
+  }
+
+  /** Debug mode only: numbers and verdict, never any image data. Used by the fairness recorder. */
+  private emitDebug(report: GateReport): void {
+    if (!this.debugOn) return;
+    const r = report.result;
+    this.dispatchEvent(
+      new CustomEvent("shadewise:gate", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          passed: r.passed,
+          score: r.score,
+          confidence: r.confidence,
+          failed: r.checks.filter((c) => c.status === "fail").map((c) => c.id),
+          warned: r.checks.filter((c) => c.status === "warn").map((c) => c.id),
+          autoFramed: !!report.autoFramed,
+          numbers: report.debug,
+        },
+      }),
+    );
   }
 
   private onClick(e: Event): void {

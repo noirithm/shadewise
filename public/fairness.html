@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShadeWise fairness recorder (dev only)</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:40rem;margin:1.5rem auto;padding:0 1rem;line-height:1.5}
+    fieldset{border:1px solid #d4d4d8;border-radius:8px;margin:1rem 0;padding:.75rem 1rem}
+    label{display:block;margin:.5rem 0 .15rem;font-weight:600}
+    select,button{font:inherit;padding:.5rem .6rem;min-height:44px}
+    #result{margin:1rem 0;padding:.75rem;border-radius:8px;background:#f4f4f5}
+    .note{color:#52525b;font-size:.9rem}
+  </style>
+</head>
+<body>
+  <h1>Fairness recorder (dev only)</h1>
+  <p class="note">For testers who have agreed to take part. A record holds only the check's numbers and what the tester selects below. <strong>No photo is saved.</strong> Skin tone is the tester's own choice: the app never guesses it.</p>
+
+  <shadewise-widget debug product-id="fairness"></shadewise-widget>
+
+  <div id="result" aria-live="polite">Take a photo in the widget above. The result appears here.</div>
+
+  <fieldset>
+    <legend>About this photo (tester fills in)</legend>
+    <label for="tone">My skin tone is closest to</label>
+    <select id="tone">
+      <option value="">Choose...</option>
+      <option value="light">Light</option>
+      <option value="medium">Medium</option>
+      <option value="deep">Deep</option>
+      <option value="skip">Prefer not to say</option>
+    </select>
+    <label for="lighting">Lighting</label>
+    <select id="lighting">
+      <option>daylight-window</option><option>outdoor-shade</option><option>indoor-warm</option>
+      <option>indoor-white</option><option>low-light</option><option>mixed</option>
+    </select>
+    <label for="device">Device</label>
+    <select id="device">
+      <option>phone-front</option><option>laptop-webcam</option><option>phone-other</option><option>other</option>
+    </select>
+    <label for="intent">I meant this photo to be</label>
+    <select id="intent">
+      <option value="good">Good (I followed the tips)</option>
+      <option value="bad">Bad on purpose</option>
+    </select>
+    <label for="fault">If bad, what is wrong</label>
+    <select id="fault">
+      <option value="none">Nothing (good photo)</option><option>dark</option><option>blurry</option>
+      <option>turned</option><option>too-far</option><option>uneven-light</option><option>other</option>
+    </select>
+  </fieldset>
+
+  <button id="save" type="button" disabled>Save this result</button>
+  <button id="download" type="button">Download CSV</button>
+  <button id="clear" type="button">Clear all</button>
+  <p id="count" class="note"></p>
+
+  <script type="module" src="/widget/index.js"></script>
+  <script>
+    var KEY = "shadewise:fairness-records";
+    var COLS = ["ts","tone","lighting","device","intent","fault","passed","score","confidence","failed","warned","autoFramed","faceWidthFrac","faceWidthFracBefore","frameP98","faceMean","edge","motion"];
+    var last = null;
+    var $ = function (id) { return document.getElementById(id); };
+    function load() { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { return []; } }
+    function store(a) { localStorage.setItem(KEY, JSON.stringify(a)); }
+    function refresh() { $("count").textContent = load().length + " results saved in this browser."; }
+
+    document.addEventListener("shadewise:gate", function (e) {
+      last = e.detail; last.saved = false;
+      $("result").textContent = (last.passed ? "PASSED" : "REFUSED") + " | score " + last.score + " | failed: " +
+        (last.failed.join(", ") || "none") + " | warnings: " + (last.warned.join(", ") || "none");
+      $("save").disabled = false;
+    });
+
+    $("save").addEventListener("click", function () {
+      if (!last || last.saved) return;
+      if (!$("tone").value) { $("result").textContent = "Choose the skin tone group first (the tester's own choice)."; return; }
+      var intent = $("intent").value;
+      var n = last.numbers || {};
+      var rec = {
+        ts: new Date().toISOString(), tone: $("tone").value, lighting: $("lighting").value, device: $("device").value,
+        intent: intent, fault: intent === "good" ? "none" : $("fault").value,
+        passed: last.passed, score: last.score, confidence: last.confidence,
+        failed: last.failed.join("|"), warned: last.warned.join("|"), autoFramed: last.autoFramed,
+        faceWidthFrac: n.faceWidthFrac, faceWidthFracBefore: n.faceWidthFracBefore,
+        frameP98: n.frameP98, faceMean: n.faceMean, edge: n.edge, motion: n.motion
+      };
+      var all = load(); all.push(rec); store(all);
+      last.saved = true; $("save").disabled = true; refresh();
+      $("result").textContent += "  (saved)";
+    });
+
+    $("download").addEventListener("click", function () {
+      var rows = load();
+      var csv = [COLS.join(",")].concat(rows.map(function (r) {
+        return COLS.map(function (c) { return r[c] === undefined ? "" : String(r[c]); }).join(",");
+      })).join("\n");
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = "fairness-" + new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "") + ".csv";
+      a.click();
+    });
+
+    $("clear").addEventListener("click", function () {
+      if (confirm("Delete all saved results in this browser?")) { store([]); refresh(); }
+    });
+    refresh();
+  </script>
+</body>
+</html>
