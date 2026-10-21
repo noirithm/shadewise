@@ -13,4 +13,5 @@ export const TIPS = {
   soft: "The photo looks soft. Wipe the camera lens, hold still, and try again in brighter light.",
   motion: "The photo looks smeared from movement. Hold still for a moment and try again.",
   cast: "The light looks coloured. Use daylight or plain white light, and avoid filters.",
+  smallPhoto: "That photo is too small. Please use one at least 320 pixels on its shorter side.",
 } as const;
