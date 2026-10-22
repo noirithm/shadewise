@@ -17,6 +17,7 @@ li{margin-bottom:.5rem}
 .live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .stage{aspect-ratio:3/4;max-height:60vh;background:#111;border-radius:8px;overflow:hidden;margin:0 0 .75rem}.stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}.preview{display:block;max-width:100%;max-height:60vh;border-radius:8px;margin:0 0 .75rem}.err{min-height:1.5em;color:#b91c1c;font-weight:600}.btn[disabled]{opacity:.5;cursor:not-allowed}
 .debug{font:.75rem/1.4 ui-monospace,monospace;white-space:pre-wrap;background:#f4f4f5;padding:.5rem;border-radius:6px;max-height:14rem;overflow:auto}
+.chiprow{display:flex;align-items:center;gap:.75rem;margin:0 0 .75rem}.chip{width:44px;height:44px;border-radius:8px;border:1px solid #71717a;forced-color-adjust:none}.fig{margin:0 0 .75rem}.fig figcaption{font-size:.875rem;color:#52525b}
 @media (forced-colors:active){.btn,.card{border:2px solid ButtonText}.btn.primary{border-color:Highlight}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 `;

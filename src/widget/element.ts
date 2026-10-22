@@ -1,3 +1,5 @@
+import { analyzeOnServer, newSessionId, type AnalysisResult } from "./api";
+import { LIMITS } from "../config/limits";
 import { clearConsent, readConsent, saveConsent } from "./consent";
 import { analyzePhoto, type GateReport } from "./gate/analyze";
 import { fileToJpeg, renderToJpeg, type PreparedPhoto } from "./image";
@@ -14,6 +16,9 @@ const SIMPLE_ACTIONS: Record<string, WidgetEvent> = {
   retake: { type: "RETAKE" },
   close: { type: "RESET" },
 };
+
+const HEX = /^#[0-9a-fA-F]{6}$/;
+const DEFAULT_SWATCH = "#b88f76";
 
 function escapeHtml(s: string): string {
   return s
@@ -42,11 +47,27 @@ interface Ctx {
   previewUrl: string | null;
   debugText: string | null;
   autoFramed: boolean;
+  gateOnly: boolean;
+  result: AnalysisResult | null;
 }
 
 const preview = (c: Ctx) => `<img class="preview" src="${c.previewUrl ?? ""}" alt="${S.previewAlt}">`;
-const framedNote = (c: Ctx) => (c.autoFramed ? '<p class="note">' + S.autoFramedNote + "</p>" : "");
+const framedNote = (c: Ctx) => (c.autoFramed ? `<p class="note">${S.autoFramedNote}</p>` : "");
 const dbg = (c: Ctx) => (c.debugText ? `<pre class="debug">${escapeHtml(c.debugText)}</pre>` : "");
+
+function resultBody(c: Ctx): string {
+  const r = c.result;
+  if (!r) return `<p>${S.laterBody}</p>`;
+  const shown = r.previews[0]?.status === "ok";
+  return (
+    `<p>${S.resultMeasured}</p>` +
+    `<div class="chiprow"><span class="chip" data-chip role="img" aria-label="${S.resultMeasured}"></span><code data-hex></code></div>` +
+    (shown
+      ? `<figure class="fig"><img class="preview" data-preview alt="${S.previewAlt2}"><figcaption>${S.aiPreview}</figcaption></figure>`
+      : `<p class="note">${S.previewMissing}</p>`) +
+    `<p class="note">${S.resultNote}</p>`
+  );
+}
 
 function view(state: WidgetState, ctx: Ctx): string {
   switch (state.name) {
@@ -86,10 +107,12 @@ function view(state: WidgetState, ctx: Ctx): string {
       );
     case "analyzing":
       return card(
-        S.passedTitle,
-        `${preview(ctx)}<p>${S.passedBody}</p>${framedNote(ctx)}${dbg(ctx)}`,
-        btn("retake", S.retake, true),
+        ctx.gateOnly ? S.gateOnlyTitle : S.analyzingTitle,
+        `${preview(ctx)}<p role="status">${ctx.gateOnly ? S.gateOnlyBody : S.analyzingBody}</p>${framedNote(ctx)}${dbg(ctx)}`,
+        btn("retake", ctx.gateOnly ? S.retake : S.cancelAnalysis, ctx.gateOnly),
       );
+    case "verdict":
+      return card(S.resultTitle, resultBody(ctx), btn("retake", S.retake, true));
     case "refused":
       return card(
         REFUSED.title,
@@ -115,11 +138,26 @@ export class ShadeWiseWidget extends HTMLElement {
   private stream: MediaStream | null = null;
   private photo: { blob: Blob; url: string } | null = null; // memory only, never persisted
   private gateRun = 0;
+  private analysisRun = 0;
+  private analysisAbort: AbortController | null = null;
   private debugText: string | null = null;
   private autoFramed = false;
+  private result: AnalysisResult | null = null;
+  private session = newSessionId();
 
   private get debugOn(): boolean {
     return this.hasAttribute("debug") || new URLSearchParams(location.search).has("gate-debug");
+  }
+  private get gateOnly(): boolean {
+    return this.hasAttribute("gate-only");
+  }
+  private get productId(): string {
+    const v = this.getAttribute("product-id") ?? "";
+    return /^[A-Za-z0-9_-]{1,40}$/.test(v) ? v : "demo";
+  }
+  private get swatch(): string {
+    const v = this.getAttribute("swatch") ?? "";
+    return HEX.test(v) ? v : DEFAULT_SWATCH;
   }
 
   connectedCallback(): void {
@@ -141,6 +179,8 @@ export class ShadeWiseWidget extends HTMLElement {
 
   disconnectedCallback(): void {
     this.gateRun++;
+    this.analysisRun++;
+    this.analysisAbort?.abort();
     this.stopCamera();
     this.clearPhoto();
   }
@@ -155,9 +195,12 @@ export class ShadeWiseWidget extends HTMLElement {
   private dispatch(event: WidgetEvent): void {
     if (event.type === "RETAKE" || event.type === "RESET") {
       this.gateRun++; // drop any check still running
+      this.analysisRun++;
+      this.analysisAbort?.abort();
       this.clearPhoto();
       this.debugText = null;
       this.autoFramed = false;
+      this.result = null;
     }
     this.state = reduce(this.state, event);
     this.render();
@@ -280,6 +323,40 @@ export class ShadeWiseWidget extends HTMLElement {
     }
   }
 
+  /** The paid step. Only reached after the free gate passes. */
+  private async runAnalysis(): Promise<void> {
+    const photo = this.photo;
+    if (!photo || this.gateOnly) return; // gate-only pages (the fairness recorder) never call the API
+    const run = ++this.analysisRun;
+    this.analysisAbort?.abort();
+    const ctl = new AbortController();
+    this.analysisAbort = ctl;
+    const timer = setTimeout(() => ctl.abort(new DOMException("timeout", "TimeoutError")), LIMITS.clientTimeoutMs);
+    const stale = () => run !== this.analysisRun || this.state.name !== "analyzing";
+    this.announce(S.analyzingAnnounce);
+    try {
+      const out = await analyzeOnServer(photo.blob, this.session, [{ id: this.productId, hex: this.swatch }], ctl.signal);
+      if (stale()) return;
+      if (out.kind === "ok") {
+        this.result = out.result;
+        this.dispatch({ type: "ANALYSIS_DONE" });
+      } else if (out.kind === "refused") {
+        this.dispatch({ type: "GATE_FAILED", reasons: out.tips.length ? out.tips : [S.gateFallbackTip] });
+      } else if (out.kind === "budget") {
+        this.dispatch({ type: "BUDGET_EXHAUSTED" });
+      } else {
+        this.dispatch({ type: "ANALYSIS_FAILED", code: out.code });
+      }
+    } catch {
+      if (stale()) return;
+      const timedOut = ctl.signal.reason instanceof DOMException && ctl.signal.reason.name === "TimeoutError";
+      this.dispatch({ type: "ANALYSIS_FAILED", code: timedOut ? "timeout" : "api_error" });
+    } finally {
+      clearTimeout(timer);
+      if (this.analysisAbort === ctl) this.analysisAbort = null;
+    }
+  }
+
   /** Debug mode only: numbers and verdict, never any image data. Used by the fairness recorder. */
   private emitDebug(report: GateReport): void {
     if (!this.debugOn) return;
@@ -325,12 +402,28 @@ export class ShadeWiseWidget extends HTMLElement {
     }
   }
 
+  /** Values from the server go in through the DOM, never into HTML strings. */
+  private fillResult(): void {
+    if (this.state.name !== "verdict" || !this.result) return;
+    const r = this.result;
+    const chip = this.panel.querySelector<HTMLElement>("[data-chip]");
+    if (chip) chip.style.background = r.skinHex;
+    const code = this.panel.querySelector<HTMLElement>("[data-hex]");
+    if (code) code.textContent = r.skinHex;
+    const img = this.panel.querySelector<HTMLImageElement>("[data-preview]");
+    const p = r.previews[0];
+    if (img && p?.status === "ok" && p.imageUrl) img.src = p.imageUrl;
+  }
+
   private render(): void {
     this.panel.innerHTML = view(this.state, {
       previewUrl: this.photo?.url ?? null,
       debugText: this.debugText,
       autoFramed: this.autoFramed,
+      gateOnly: this.gateOnly,
+      result: this.result,
     });
+    this.fillResult();
     if (this.state.name === "capture" && this.state.via === "camera") {
       void this.startCamera();
     } else {
@@ -343,6 +436,7 @@ export class ShadeWiseWidget extends HTMLElement {
     // Moving focus to the new screen's heading is what announces the change to screen readers.
     this.panel.querySelector<HTMLElement>("[data-focus]")?.focus();
     if (this.state.name === "quality_check") void this.runGate();
+    if (this.state.name === "analyzing") void this.runAnalysis();
   }
 }
 

@@ -69,6 +69,7 @@ export function reduce(state: WidgetState, event: WidgetEvent): WidgetState {
       return state;
     case "analyzing":
       if (event.type === "ANALYSIS_DONE") return { name: "verdict" };
+      if (event.type === "GATE_FAILED") return { name: "refused", reasons: event.reasons };
       if (event.type === "ANALYSIS_FAILED") return { name: "error", code: event.code };
       if (event.type === "RETAKE") return { name: "source" };
       return state;
