@@ -1,6 +1,8 @@
 import { analyzeOnServer, newSessionId, type AnalysisResult } from "./api";
 import { LIMITS } from "../config/limits";
+import { assetUrl } from "./assets";
 import { clearConsent, readConsent, saveConsent } from "./consent";
+import { loadSample, pickPreview, type Sample } from "./sample";
 import { analyzePhoto, type GateReport } from "./gate/analyze";
 import { fileToJpeg, renderToJpeg, type PreparedPhoto } from "./image";
 import { checkFileBasics, isTooSmall } from "./imageCheck";
@@ -49,6 +51,10 @@ interface Ctx {
   autoFramed: boolean;
   gateOnly: boolean;
   result: AnalysisResult | null;
+  sample: Sample | null;
+  sampleState: "loading" | "ready" | "failed";
+  productId: string;
+  swatch: string;
 }
 
 const preview = (c: Ctx) => `<img class="preview" src="${c.previewUrl ?? ""}" alt="${S.previewAlt}">`;
@@ -69,6 +75,23 @@ function resultBody(c: Ctx): string {
   );
 }
 
+function sampleBody(c: Ctx): string {
+  const badge = `<p><span class="badge">${S.sampleBadge}</span></p>`;
+  if (c.sampleState === "loading") return `${badge}<p role="status">${S.sampleLoading}</p>`;
+  if (c.sampleState === "failed" || !c.sample) return `${badge}<p>${S.sampleUnavailable}</p>`;
+  const p = pickPreview(c.sample, c.productId, c.swatch);
+  return (
+    badge +
+    `<p>${S.sampleBody}</p>` +
+    `<p>${S.resultMeasured}</p>` +
+    `<div class="chiprow"><span class="chip" data-chip role="img" aria-label="${S.resultMeasured}"></span><code data-hex></code></div>` +
+    (p
+      ? `<figure class="fig"><img class="preview" data-sample-img alt="${S.previewAlt2}"><figcaption>${S.sampleFigcaption}</figcaption></figure>`
+      : `<p class="note">${S.sampleNoPreview}</p>`) +
+    `<p class="note">${escapeHtml(c.sample.subject)} Recorded ${escapeHtml(c.sample.recordedAt.slice(0, 10))}.</p>`
+  );
+}
+
 function view(state: WidgetState, ctx: Ctx): string {
   switch (state.name) {
     case "idle":
@@ -83,7 +106,7 @@ function view(state: WidgetState, ctx: Ctx): string {
       return card(
         S.sourceTitle,
         `<p>${S.sourceHint}</p>`,
-        btn("camera", S.useCamera, true) + btn("upload", S.uploadPhoto),
+        btn("camera", S.useCamera, true) + btn("upload", S.uploadPhoto) + btn("sample", S.viewSample),
       );
     case "capture":
       return state.via === "camera"
@@ -123,8 +146,10 @@ function view(state: WidgetState, ctx: Ctx): string {
       const c = ERROR_COPY[state.code];
       return card(c.title, `<p>${c.message}</p>`, btn("retake", c.action, true));
     }
+    case "sample":
+      return card(S.sampleTitle, sampleBody(ctx), btn("retake", S.sampleBack, true));
     case "budget_exhausted":
-      return card(S.budgetTitle, `<p>${S.budgetBody}</p>`, "");
+      return card(S.budgetTitle, `<p>${S.budgetBody}</p>`, btn("sample", S.viewSample, true));
     default:
       return card(S.laterTitle, `<p>${S.laterBody}</p>`, "");
   }
@@ -144,6 +169,9 @@ export class ShadeWiseWidget extends HTMLElement {
   private autoFramed = false;
   private result: AnalysisResult | null = null;
   private session = newSessionId();
+  private sample: Sample | null = null;
+  private sampleState: "loading" | "ready" | "failed" = "loading";
+  private sampleTried = false;
 
   private get debugOn(): boolean {
     return this.hasAttribute("debug") || new URLSearchParams(location.search).has("gate-debug");
@@ -397,6 +425,8 @@ export class ShadeWiseWidget extends HTMLElement {
       this.panel.querySelector<HTMLInputElement>("#file")?.click();
     } else if (action === "snap") {
       void this.snap();
+    } else if (action === "sample") {
+      this.dispatch({ type: "SHOW_SAMPLE" });
     } else if (SIMPLE_ACTIONS[action]) {
       this.dispatch(SIMPLE_ACTIONS[action]);
     }
@@ -415,6 +445,29 @@ export class ShadeWiseWidget extends HTMLElement {
     if (img && p?.status === "ok" && p.imageUrl) img.src = p.imageUrl;
   }
 
+  private async ensureSample(): Promise<void> {
+    if (this.sample || this.sampleTried) return;
+    this.sampleTried = true;
+    this.sampleState = "loading";
+    const s = await loadSample();
+    this.sample = s;
+    this.sampleState = s ? "ready" : "failed";
+    if (this.state.name === "sample") this.render();
+  }
+
+  /** Values from the recorded file go in through the DOM, never into HTML strings. */
+  private fillSample(): void {
+    if (this.state.name !== "sample" || !this.sample) return;
+    const s = this.sample;
+    const chip = this.panel.querySelector<HTMLElement>("[data-chip]");
+    if (chip) chip.style.background = s.skinHex;
+    const code = this.panel.querySelector<HTMLElement>("[data-hex]");
+    if (code) code.textContent = s.skinHex;
+    const img = this.panel.querySelector<HTMLImageElement>("[data-sample-img]");
+    const p = pickPreview(s, this.productId, this.swatch);
+    if (img && p) img.src = assetUrl("samples/" + p.file);
+  }
+
   private render(): void {
     this.panel.innerHTML = view(this.state, {
       previewUrl: this.photo?.url ?? null,
@@ -422,8 +475,13 @@ export class ShadeWiseWidget extends HTMLElement {
       autoFramed: this.autoFramed,
       gateOnly: this.gateOnly,
       result: this.result,
+      sample: this.sample,
+      sampleState: this.sampleState,
+      productId: this.productId,
+      swatch: this.swatch,
     });
     this.fillResult();
+    this.fillSample();
     if (this.state.name === "capture" && this.state.via === "camera") {
       void this.startCamera();
     } else {
@@ -437,6 +495,7 @@ export class ShadeWiseWidget extends HTMLElement {
     this.panel.querySelector<HTMLElement>("[data-focus]")?.focus();
     if (this.state.name === "quality_check") void this.runGate();
     if (this.state.name === "analyzing") void this.runAnalysis();
+    if (this.state.name === "sample") void this.ensureSample();
   }
 }
 

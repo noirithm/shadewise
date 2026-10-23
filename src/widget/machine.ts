@@ -17,7 +17,8 @@ export type WidgetState =
   | { name: "verdict" }
   | { name: "refused"; reasons: string[] }
   | { name: "error"; code: ErrorCode }
-  | { name: "budget_exhausted" };
+  | { name: "budget_exhausted" }
+  | { name: "sample" };
 
 export type WidgetEvent =
   | { type: "OPEN" }
@@ -33,6 +34,7 @@ export type WidgetEvent =
   | { type: "ANALYSIS_DONE" }
   | { type: "ANALYSIS_FAILED"; code: ErrorCode }
   | { type: "BUDGET_EXHAUSTED" }
+  | { type: "SHOW_SAMPLE" }
   | { type: "RETAKE" }
   | { type: "RESET" }; // "delete my data" or close
 
@@ -51,6 +53,7 @@ export function reduce(state: WidgetState, event: WidgetEvent): WidgetState {
       if (event.type === "CONSENT_DECLINED") return initialState;
       return state;
     case "source":
+      if (event.type === "SHOW_SAMPLE") return { name: "sample" };
       if (event.type === "CHOOSE_CAMERA") return { name: "capture", via: "camera" };
       if (event.type === "CHOOSE_UPLOAD") return { name: "capture", via: "upload" };
       return state;
@@ -78,6 +81,8 @@ export function reduce(state: WidgetState, event: WidgetEvent): WidgetState {
     case "verdict":
       return event.type === "RETAKE" ? { name: "source" } : state;
     case "budget_exhausted":
-      return state;
+      return event.type === "SHOW_SAMPLE" ? { name: "sample" } : state;
+    case "sample":
+      return event.type === "RETAKE" ? { name: "source" } : state;
   }
 }
