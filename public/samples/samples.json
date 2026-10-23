@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-24T05:36:49.841Z",
+  "subject": "AI-generated example face, not a real person",
+  "tone": {
+    "skinHex": "#aa8265",
+    "allGood": true
+  },
+  "previews": [
+    {
+      "id": "demo-01",
+      "hex": "#F3D9C6",
+      "file": "demo-01.png"
+    },
+    {
+      "id": "demo-02",
+      "hex": "#EBC8AE",
+      "file": "demo-02.png"
+    },
+    {
+      "id": "demo-03",
+      "hex": "#D9AE8E",
+      "file": "demo-03.png"
+    },
+    {
+      "id": "demo-04",
+      "hex": "#B88F76",
+      "file": "demo-04.png"
+    },
+    {
+      "id": "demo-05",
+      "hex": "#A57656",
+      "file": "demo-05.png"
+    },
+    {
+      "id": "demo-06",
+      "hex": "#8A5A44",
+      "file": "demo-06.png"
+    },
+    {
+      "id": "demo-07",
+      "hex": "#6B4331",
+      "file": "demo-07.png"
+    },
+    {
+      "id": "demo-08",
+      "hex": "#4A2E22",
+      "file": "demo-08.png"
+    }
+  ]
+}
