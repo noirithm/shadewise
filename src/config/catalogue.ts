@@ -1,4 +1,5 @@
 // Self-defined demo products. Not real brands, not scraped data. Always labelled "demo catalogue".
+// Listed from lightest to deepest. demo-09 and demo-10 were added to fill the widest gaps between shades.
 export interface Product {
   id: string;
   brand: string;
@@ -14,8 +15,10 @@ export const CATALOGUE: readonly Product[] = [
   { id: "demo-01", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Porcelain 01", hex: "#F3D9C6", priceInr: 899 },
   { id: "demo-02", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Ivory 02", hex: "#EBC8AE", priceInr: 899 },
   { id: "demo-03", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Sand 03", hex: "#D9AE8E", priceInr: 949 },
+  { id: "demo-09", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Beige 09", hex: "#C89E82", priceInr: 949 },
   { id: "demo-04", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Honey 04", hex: "#B88F76", priceInr: 949 },
   { id: "demo-05", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Caramel 05", hex: "#A57656", priceInr: 999 },
+  { id: "demo-10", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Amber 10", hex: "#97684D", priceInr: 999 },
   { id: "demo-06", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Chestnut 06", hex: "#8A5A44", priceInr: 999 },
   { id: "demo-07", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Mocha 07", hex: "#6B4331", priceInr: 1049 },
   { id: "demo-08", brand: "Demo Brand", name: "Skin Tint Foundation", shade: "Espresso 08", hex: "#4A2E22", priceInr: 1049 },
