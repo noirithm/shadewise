@@ -1,4 +1,7 @@
-import { analyzeOnServer, newSessionId, type AnalysisResult } from "./api";
+import { analyzeOnServer, newSessionId, type AnalysisResult, type Preview } from "./api";
+import { loadCatalogue, parseIdList, resolveItems, type Item } from "./catalogue";
+import { R } from "./resultStrings";
+import { buildResultModel, fillResultDom, renderResultHtml, summaryText, type PreviewRef, type ResultModel } from "./resultView";
 import { LIMITS } from "../config/limits";
 import { assetUrl } from "./assets";
 import { clearConsent, readConsent, saveConsent } from "./consent";
@@ -55,6 +58,7 @@ interface Ctx {
   sampleState: "loading" | "ready" | "failed";
   productId: string;
   swatch: string;
+  model: ResultModel | null;
 }
 
 const preview = (c: Ctx) => `<img class="preview" src="${c.previewUrl ?? ""}" alt="${S.previewAlt}">`;
@@ -135,7 +139,7 @@ function view(state: WidgetState, ctx: Ctx): string {
         btn("retake", ctx.gateOnly ? S.retake : S.cancelAnalysis, ctx.gateOnly),
       );
     case "verdict":
-      return card(S.resultTitle, resultBody(ctx), btn("retake", S.retake, true));
+      return card(S.resultTitle, ctx.model ? renderResultHtml(ctx.model) : resultBody(ctx), btn("retake", S.retake, true));
     case "refused":
       return card(
         REFUSED.title,
@@ -147,7 +151,11 @@ function view(state: WidgetState, ctx: Ctx): string {
       return card(c.title, `<p>${c.message}</p>`, btn("retake", c.action, true));
     }
     case "sample":
-      return card(S.sampleTitle, sampleBody(ctx), btn("retake", S.sampleBack, true));
+      return card(
+        S.sampleTitle,
+        ctx.model && ctx.sampleState === "ready" ? renderResultHtml(ctx.model) : sampleBody(ctx),
+        btn("retake", S.sampleBack, true),
+      );
     case "budget_exhausted":
       return card(S.budgetTitle, `<p>${S.budgetBody}</p>`, btn("sample", S.viewSample, true));
     default:
@@ -168,6 +176,13 @@ export class ShadeWiseWidget extends HTMLElement {
   private debugText: string | null = null;
   private autoFramed = false;
   private result: AnalysisResult | null = null;
+  private model: ResultModel | null = null;
+  private items: Item[] = [];
+  private itemsPromise: Promise<Item[]> | null = null;
+  private validity = 0; // capture-quality score of the current photo; 0 until the gate has scored it
+  private livePreviews: Record<string, PreviewRef> = {};
+  private previewBusy = new Set<string>();
+  private skipFocus = false;
   private session = newSessionId();
   private sample: Sample | null = null;
   private sampleState: "loading" | "ready" | "failed" = "loading";
@@ -229,6 +244,10 @@ export class ShadeWiseWidget extends HTMLElement {
       this.debugText = null;
       this.autoFramed = false;
       this.result = null;
+      this.model = null;
+      this.livePreviews = {};
+      this.previewBusy.clear();
+      this.validity = 0;
     }
     this.state = reduce(this.state, event);
     this.render();
@@ -339,6 +358,7 @@ export class ShadeWiseWidget extends HTMLElement {
       this.autoFramed = !!report.autoFramed;
       this.debugText = this.debugOn ? JSON.stringify(report.debug, null, 2) : null;
       this.emitDebug(report);
+      this.validity = report.result.score;
       if (report.result.passed) {
         this.dispatch({ type: "GATE_PASSED" });
       } else {
@@ -363,11 +383,17 @@ export class ShadeWiseWidget extends HTMLElement {
     const stale = () => run !== this.analysisRun || this.state.name !== "analyzing";
     this.announce(S.analyzingAnnounce);
     try {
-      const out = await analyzeOnServer(photo.blob, this.session, [{ id: this.productId, hex: this.swatch }], ctl.signal);
+      const items = await this.ensureItems();
+      if (stale()) return;
+      const out = await analyzeOnServer(photo.blob, this.session, [{ id: items[0].id, hex: items[0].hex }], ctl.signal);
       if (stale()) return;
       if (out.kind === "ok") {
         this.result = out.result;
+        this.livePreviews = {};
+        this.mergePreviews(out.result.previews);
+        this.buildModel();
         this.dispatch({ type: "ANALYSIS_DONE" });
+        if (this.model) this.announce(summaryText(this.model));
       } else if (out.kind === "refused") {
         this.dispatch({ type: "GATE_FAILED", reasons: out.tips.length ? out.tips : [S.gateFallbackTip] });
       } else if (out.kind === "budget") {
@@ -425,11 +451,103 @@ export class ShadeWiseWidget extends HTMLElement {
       this.panel.querySelector<HTMLInputElement>("#file")?.click();
     } else if (action === "snap") {
       void this.snap();
+    } else if (action === "preview") {
+      void this.requestPreview(target.dataset.itemId ?? "");
     } else if (action === "sample") {
       this.dispatch({ type: "SHOW_SAMPLE" });
     } else if (SIMPLE_ACTIONS[action]) {
       this.dispatch(SIMPLE_ACTIONS[action]);
     }
+  }
+
+  /** The page's own shade first, then up to two to compare. Loaded once; always returns at least one. */
+  private ensureItems(): Promise<Item[]> {
+    if (!this.itemsPromise) {
+      this.itemsPromise = (async () => {
+        const src = this.getAttribute("catalogue-src");
+        const catalogue = src ? await loadCatalogue(src, assetUrl("")) : null;
+        this.items = resolveItems(catalogue, this.productId, this.getAttribute("swatch"), parseIdList(this.getAttribute("compare")));
+        return this.items;
+      })();
+    }
+    return this.itemsPromise;
+  }
+
+  private mergePreviews(list: Preview[]): void {
+    for (const p of list) {
+      this.livePreviews[p.id] =
+        p.status === "ok" && p.imageUrl ? { status: "ok", url: p.imageUrl } : { status: p.status === "skipped" ? "skipped" : "failed" };
+    }
+  }
+
+  private buildModel(): void {
+    if (!this.result) {
+      this.model = null;
+      return;
+    }
+    this.model = buildResultModel({
+      source: "live",
+      skinHex: this.result.skinHex,
+      qualityConfirmed: this.result.allGood,
+      validity: this.validity,
+      items: this.items,
+      previews: this.livePreviews,
+      busy: [...this.previewBusy],
+    });
+  }
+
+  private buildSampleModel(s: Sample): void {
+    const previews: Record<string, PreviewRef> = {};
+    for (const it of this.items) {
+      const p = pickPreview(s, it.id, it.hex);
+      // only a preview rendered with this exact shade colour may be shown for it
+      previews[it.id] =
+        p && p.hex.toLowerCase() === it.hex.toLowerCase() ? { status: "ok", url: assetUrl("samples/" + p.file) } : { status: "none" };
+    }
+    this.model = buildResultModel({
+      source: "sample",
+      skinHex: s.skinHex,
+      qualityConfirmed: s.allGood,
+      validity: 1,
+      items: this.items,
+      previews,
+      busy: [],
+    });
+  }
+
+  /** Re-draw the result without moving the shopper's focus back to the top. */
+  private refreshResult(focusId: string): void {
+    this.buildModel();
+    this.skipFocus = true;
+    this.render();
+    [...this.panel.querySelectorAll<HTMLElement>("[data-preview-btn]")].find((el) => el.dataset.previewBtn === focusId)?.focus();
+  }
+
+  /** One more shade's AI preview, on the photo already in memory. The server caches the measurement. */
+  private async requestPreview(id: string): Promise<void> {
+    const photo = this.photo;
+    const it = this.items.find((i) => i.id === id);
+    if (!photo || !it || this.previewBusy.has(id) || this.state.name !== "verdict") return;
+    const run = this.analysisRun;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), LIMITS.clientTimeoutMs);
+    this.previewBusy.add(id);
+    this.refreshResult(id);
+    try {
+      const out = await analyzeOnServer(photo.blob, this.session, [{ id: it.id, hex: it.hex }], ctl.signal);
+      if (run !== this.analysisRun) return;
+      if (out.kind === "ok") this.mergePreviews(out.result.previews);
+      else this.livePreviews[id] = { status: out.kind === "budget" ? "skipped" : "failed" };
+    } catch {
+      if (run !== this.analysisRun) return;
+      this.livePreviews[id] = { status: "failed" };
+    } finally {
+      clearTimeout(timer);
+      this.previewBusy.delete(id);
+    }
+    if (run !== this.analysisRun || this.state.name !== "verdict") return;
+    this.refreshResult(id);
+    this.announce(this.livePreviews[id]?.status === "ok" ? `${it.shade}: ${R.aiPreview} ready.` : `${it.shade}: ${R.previewFailed}`);
   }
 
   /** Values from the server go in through the DOM, never into HTML strings. */
@@ -452,6 +570,10 @@ export class ShadeWiseWidget extends HTMLElement {
     const s = await loadSample();
     this.sample = s;
     this.sampleState = s ? "ready" : "failed";
+    if (s) {
+      await this.ensureItems();
+      this.buildSampleModel(s);
+    }
     if (this.state.name === "sample") this.render();
   }
 
@@ -479,9 +601,11 @@ export class ShadeWiseWidget extends HTMLElement {
       sampleState: this.sampleState,
       productId: this.productId,
       swatch: this.swatch,
+      model: this.model,
     });
     this.fillResult();
     this.fillSample();
+    if (this.model && (this.state.name === "verdict" || this.state.name === "sample")) fillResultDom(this.panel);
     if (this.state.name === "capture" && this.state.via === "camera") {
       void this.startCamera();
     } else {
@@ -492,7 +616,8 @@ export class ShadeWiseWidget extends HTMLElement {
       return;
     }
     // Moving focus to the new screen's heading is what announces the change to screen readers.
-    this.panel.querySelector<HTMLElement>("[data-focus]")?.focus();
+    if (this.skipFocus) this.skipFocus = false;
+    else this.panel.querySelector<HTMLElement>("[data-focus]")?.focus();
     if (this.state.name === "quality_check") void this.runGate();
     if (this.state.name === "analyzing") void this.runAnalysis();
     if (this.state.name === "sample") void this.ensureSample();

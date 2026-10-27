@@ -19,6 +19,15 @@ li{margin-bottom:.5rem}
 .debug{font:.75rem/1.4 ui-monospace,monospace;white-space:pre-wrap;background:#f4f4f5;padding:.5rem;border-radius:6px;max-height:14rem;overflow:auto}
 .chiprow{display:flex;align-items:center;gap:.75rem;margin:0 0 .75rem}.chip{width:44px;height:44px;border-radius:8px;border:1px solid #71717a;forced-color-adjust:none}.fig{margin:0 0 .75rem}.fig figcaption{font-size:.875rem;color:#52525b}
 .badge{display:inline-block;padding:.25rem .75rem;border-radius:999px;border:2px solid #b45309;background:#fef3c7;color:#78350f;font-weight:700;font-size:.875rem}
+.h3{margin:1rem 0 .5rem;font-size:1.05rem;line-height:1.3}.h4{margin:.75rem 0 .25rem;font-size:.95rem}.price{font-weight:400;color:#52525b}
+.verdict{display:inline-flex;align-items:center;gap:.5rem;margin:0;padding:.35rem .9rem;border-radius:999px;border:2px solid;font-weight:700}
+.v-good{background:#dcfce7;border-color:#166534;color:#14532d}.v-close{background:#fef3c7;border-color:#b45309;color:#78350f}
+.v-poor{background:#fee2e2;border-color:#b91c1c;color:#7f1d1d}.v-cant{background:#f4f4f5;border-color:#52525b;color:#27272a}
+.swatches{display:flex;flex-wrap:wrap;gap:1rem;margin:.5rem 0 .75rem}.sw{display:flex;align-items:center;gap:.6rem}
+.rank{list-style:none;margin:0 0 .75rem;padding:0}.rank li{border:1px solid var(--sw-border,#d4d4d8);border-radius:8px;padding:.75rem;margin-bottom:.5rem}.rank p{margin:0 0 .4rem}
+.rec{display:inline-block;padding:.05rem .6rem;border-radius:6px;border:2px solid;font-weight:700;font-size:.875rem}
+.rec-buy{background:#dcfce7;border-color:#166534;color:#14532d}.rec-consider{background:#fef3c7;border-color:#b45309;color:#78350f}.rec-skip{background:#f4f4f5;border-color:#52525b;color:#27272a}
+.btn.small{min-height:44px;padding:.4rem .9rem;font-size:.9rem}.btn[aria-disabled=true]{opacity:.6;cursor:progress}.thumb{display:block;max-width:9rem;max-height:12rem;border-radius:6px;margin:.4rem 0}
 @media (forced-colors:active){.btn,.card{border:2px solid ButtonText}.btn.primary{border-color:Highlight}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 `;

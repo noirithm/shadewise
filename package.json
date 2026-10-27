@@ -12,7 +12,8 @@
     "prebuild": "npm run setup:mediapipe && npm run build:widget",
     "setup:mediapipe": "node scripts/setup-mediapipe.mjs",
     "predev": "npm run setup:mediapipe && npm run build:widget",
-    "fairness:report": "tsx scripts/fairness-report.ts"
+    "fairness:report": "tsx scripts/fairness-report.ts",
+    "sample:record": "tsx scripts/record-sample.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.1.0",
