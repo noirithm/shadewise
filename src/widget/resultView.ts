@@ -110,7 +110,7 @@ function rankRow(s: ShadeResult, m: ResultModel): string {
   let action = "";
   if (v.label !== "cant_tell") {
     if (s.preview.status === "ok") {
-      action = `<img class="thumb" data-src="${esc(s.preview.url)}" alt="${esc(R.previewAlt(s.item.shade))}"><p class="note">${esc(R.aiPreview)}</p>`;
+      action = isThis ? "" : `<img class="thumb" data-src="${esc(s.preview.url)}" alt="${esc(R.previewAlt(s.item.shade))}"><p class="note">${esc(R.aiPreview)}</p>`;
     } else if (m.source === "live" && !isThis && (s.preview.status === "none" || s.preview.status === "failed")) {
       action = s.busy
         ? `<button class="btn small" type="button" aria-disabled="true" data-action="preview" data-item-id="${esc(s.item.id)}" data-preview-btn="${esc(s.item.id)}">${esc(R.previewBusy)}</button>`

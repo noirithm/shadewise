@@ -13,6 +13,8 @@ import { toHttp } from "@/server/respond";
 import { SERVER_LIMITS } from "@/server/upload";
 import { createYouCamClient } from "@/server/youcam";
 
+export const maxDuration = 60; // seconds
+
 const SESSION = /^[A-Za-z0-9_-]{16,64}$/;
 const ItemsSchema = z
   .array(z.object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/), hex: z.string().regex(/^#[0-9a-fA-F]{6}$/) }))

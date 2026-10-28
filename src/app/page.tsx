@@ -1,69 +1,41 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import type { Metadata } from "next";
+import { CATALOGUE, CATALOGUE_LABEL } from "@/config/catalogue";
+import { inr } from "@/shared/money";
+import { StoreShell } from "./_components/StoreShell";
+
+export const metadata: Metadata = {
+  title: "ShadeWise demo store",
+  description: "A demo store showing the ShadeWise shade-match widget: one selfie, an explainable verdict.",
+};
 
 export default function Home() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <StoreShell>
+      <section className="hero" aria-labelledby="hero-title">
+        <h1 id="hero-title">Know if a shade will suit you before you buy it</h1>
+        <p>
+          Open any product, take one selfie, and ShadeWise measures your skin tone and tells you whether the shade is a good match, a close match
+          or a poor match, with the reasons. If the photo isn&apos;t good enough to trust, it says so and tells you how to retake it.
+        </p>
+      </section>
+      <section aria-labelledby="products">
+        <h2 id="products" style={{ marginTop: 0 }}>
+          Skin tint foundation <span className="tag">{CATALOGUE_LABEL}</span>
+        </h2>
+        <ul className="grid">
+          {CATALOGUE.map((p) => (
+            <li key={p.id}>
+              <a className="pcard" href={`/products/${p.id}`}>
+                <span className="swatch" style={{ background: p.hex }} role="img" aria-label={`${p.shade} swatch colour ${p.hex}`} />
+                <span className="pname">{p.shade}</span>
+                <span className="pmeta">
+                  {p.name} · {inr(p.priceInr)}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </StoreShell>
   );
 }
