@@ -1,0 +1,12 @@
+.dash-note{padding:.75rem 1rem;border-radius:8px;border:1px solid #d6d3d1;background:#fff;margin:0 0 1rem}
+.dash-demo{border-color:#b45309;background:#fef3c7;color:#78350f}
+.dash h2{margin:2rem 0 .5rem}
+.dash h3{margin:1.25rem 0 .25rem;font-size:1.05rem}
+.stats{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));margin:.75rem 0}
+.stat{padding:.75rem 1rem;border:1px solid #e7e5e4;border-radius:10px;background:#fff}
+.stat b{display:block;font-size:1.6rem;line-height:1.2}
+.stat span{color:#57534e;font-size:.9rem}
+.dash-tools{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;align-items:center;margin:1rem 0}
+.dash-tools input{width:7rem;padding:.4rem .5rem;font:inherit;min-height:44px}
+.dash-tools button{padding:.5rem 1rem;min-height:44px;font:inherit;font-weight:600;cursor:pointer}
+.dash-section{padding:0 0 1rem;border-bottom:1px solid #e7e5e4}

@@ -359,6 +359,11 @@ export class ShadeWiseWidget extends HTMLElement {
       this.debugText = this.debugOn ? JSON.stringify(report.debug, null, 2) : null;
       this.emitDebug(report);
       this.validity = report.result.score;
+      if (report.result.passed) this.track("gate_passed");
+      else {
+        const failed = report.result.checks.filter((c) => c.status === "fail").map((c) => c.id);
+        this.track("gate_refused", { reasons: failed.length ? failed : ["low_score"] });
+      }
       if (report.result.passed) {
         this.dispatch({ type: "GATE_PASSED" });
       } else {
@@ -394,6 +399,9 @@ export class ShadeWiseWidget extends HTMLElement {
         this.buildModel();
         this.dispatch({ type: "ANALYSIS_DONE" });
         if (this.model) this.announce(summaryText(this.model));
+        if (this.model) {
+          this.track("result", { label: this.model.primary.verdict.label, confidence: this.model.primary.verdict.confidence });
+        }
       } else if (out.kind === "refused") {
         this.dispatch({ type: "GATE_FAILED", reasons: out.tips.length ? out.tips : [S.gateFallbackTip] });
       } else if (out.kind === "budget") {
@@ -457,6 +465,22 @@ export class ShadeWiseWidget extends HTMLElement {
       this.dispatch({ type: "SHOW_SAMPLE" });
     } else if (SIMPLE_ACTIONS[action]) {
       this.dispatch(SIMPLE_ACTIONS[action]);
+    }
+  }
+
+  /** Anonymous counting for the merchant dashboard. Test pages never count, and counting can never break the widget. */
+  private track(type: string, extra: Record<string, unknown> = {}): void {
+    if (this.gateOnly || this.debugOn) return;
+    try {
+      void fetch(assetUrl("api/events"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, session: this.session, ...extra }),
+        keepalive: true,
+        credentials: "omit",
+      }).catch(() => {});
+    } catch {
+      /* ignore */
     }
   }
 
@@ -573,6 +597,7 @@ export class ShadeWiseWidget extends HTMLElement {
     if (s) {
       await this.ensureItems();
       this.buildSampleModel(s);
+      this.track("sample_viewed");
     }
     if (this.state.name === "sample") this.render();
   }

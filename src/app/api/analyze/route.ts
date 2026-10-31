@@ -11,6 +11,7 @@ import { log } from "@/server/log";
 import { RateLimiter } from "@/server/ratelimit";
 import { toHttp } from "@/server/respond";
 import { SERVER_LIMITS } from "@/server/upload";
+import { getMetrics } from "@/server/state";
 import { createYouCamClient } from "@/server/youcam";
 
 export const maxDuration = 60; // seconds
@@ -99,11 +100,35 @@ export async function POST(req: NextRequest) {
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
+    const spentBefore = shared.ledger.state(session).sessionSpent;
     const client = createYouCamClient({ apiKey: config.apiKey, apiBase: config.apiBase });
     const outcome = await analyze(
       { client, ledger: shared.ledger, cache: shared.cache, log },
       { sessionId: session, bytes, items },
     );
+    getMetrics().analysis({
+      session,
+      units: Math.max(0, shared.ledger.state(session).sessionSpent - spentBefore),
+      cached: outcome.ok ? outcome.cached : false,
+      outcome: outcome.ok
+        ? "ok"
+        : outcome.kind === "invalid_upload"
+          ? "invalid_upload"
+          : outcome.kind === "budget"
+            ? "budget"
+            : outcome.kind === "refused"
+              ? "refused"
+              : "error",
+      detail: outcome.ok
+        ? undefined
+        : outcome.kind === "budget"
+          ? outcome.reason
+          : outcome.kind === "error"
+            ? outcome.code
+            : outcome.kind === "invalid_upload"
+              ? outcome.problem
+              : undefined,
+    });
     const { status, body } = toHttp(outcome);
     return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store", ...h } });
   } catch (e) {

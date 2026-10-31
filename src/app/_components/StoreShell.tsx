@@ -20,6 +20,7 @@ export function StoreShell({ children }: { children: ReactNode }) {
           <nav className="nav" aria-label="Main">
             <Link href="/">Shop</Link>
             <a href="/embed">Add ShadeWise to your store</a>
+            <a href="/dashboard">Merchant dashboard</a>
           </nav>
         </div>
       </header>
