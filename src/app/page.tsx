@@ -12,8 +12,14 @@ export default function Home() {
   return (
     <StoreShell>
       <section className="hero" aria-labelledby="hero-title">
-        <h1 id="hero-title">Know if a shade will suit you before you buy it</h1>
-        <p>
+        <p className="eyebrow">
+          <span className="dot" aria-hidden="true" />
+          One selfie. An explainable verdict.
+        </p>
+        <h1 id="hero-title">
+          Know if a shade will suit you <em>before you buy it</em>
+        </h1>
+        <p className="lead">
           Open any product, take one selfie, and ShadeWise measures your skin tone and tells you whether the shade is a good match, a close match
           or a poor match, with the reasons. If the photo isn&apos;t good enough to trust, it says so and tells you how to retake it.
         </p>

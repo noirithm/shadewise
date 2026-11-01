@@ -9,18 +9,21 @@ export function StoreShell({ children }: { children: ReactNode }) {
       <a className="skip" href="#main">
         Skip to main content
       </a>
+      <p className="demo-banner">
+        <strong>{CATALOGUE_LABEL}.</strong> A made-up brand, products and prices to show how ShadeWise works on a product page. Not a real shop.
+      </p>
       <header>
-        <p className="demo-banner">
-          <strong>{CATALOGUE_LABEL}.</strong> A made-up brand, products and prices to show how ShadeWise works on a product page. Not a real shop.
-        </p>
         <div className="bar">
           <Link className="brand" href="/">
-            Demo Brand store
+            <span className="brand-mark" aria-hidden="true" />
+            Demo Brand <span className="brand-sub">store</span>
           </Link>
           <nav className="nav" aria-label="Main">
             <Link href="/">Shop</Link>
-            <a href="/embed">Add ShadeWise to your store</a>
             <a href="/dashboard">Merchant dashboard</a>
+            <a className="nav-cta" href="/embed">
+              Add ShadeWise to your store
+            </a>
           </nav>
         </div>
       </header>
@@ -28,8 +31,10 @@ export function StoreShell({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="foot">
-        <p>ShadeWise gives cosmetic guidance only. It is not medical advice, and it cannot promise how a shade will look in person.</p>
-        <p>Photos are sent to the YouCam API (Perfect Corp.) to measure skin tone and are not stored by this app.</p>
+        <div className="foot-inner">
+          <p>ShadeWise gives cosmetic guidance only. It is not medical advice, and it cannot promise how a shade will look in person.</p>
+          <p>Photos are sent to the YouCam API (Perfect Corp.) to measure skin tone and are not stored by this app.</p>
+        </div>
       </footer>
     </div>
   );
