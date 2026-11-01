@@ -8,11 +8,11 @@ export const metadata: Metadata = {
   description: "The embed snippet, the attributes, theming, and exactly what the widget sends.",
 };
 
-const SNIPPET = `<script type="module" src="https://YOUR-SHADEWISE-HOST/widget/index.js"></script>
+const SNIPPET = `<script type="module" src="https://shadewise-lac.vercel.app/widget/index.js"></script>
 
 <shadewise-widget
   product-id="demo-05"
-  catalogue-src="https://YOUR-SHADEWISE-HOST/api/catalogue"
+  catalogue-src="https://shadewise-lac.vercel.app/api/catalogue"
   compare="demo-04,demo-10">
 </shadewise-widget>`;
 

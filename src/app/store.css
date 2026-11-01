@@ -26,7 +26,11 @@
 .tag{display:inline-block;margin-left:.5rem;padding:.1rem .65rem;border-radius:999px;border:1px solid #f1d9b4;background:#fff4e0;color:#8a4b0f;font-size:.75rem;font-weight:600;vertical-align:middle}
 
 /* hero */
-.hero{max-width:46rem;padding:clamp(2rem,6vw,4.5rem) 0 clamp(1.5rem,4vw,3rem)}
+.hero{display:grid;gap:2rem;align-items:center;padding:clamp(2rem,6vw,4.5rem) 0 clamp(1.5rem,4vw,3rem)}
+.hero-copy{max-width:46rem}
+.hero-art{position:relative;width:min(100%,16rem);aspect-ratio:1/1;justify-self:start}
+.hero-art img{object-fit:contain}
+@media (min-width:56rem){.hero{grid-template-columns:minmax(0,1fr) 22rem}.hero-art{width:100%;justify-self:end}}
 .eyebrow{display:inline-flex;align-items:center;gap:.5rem;margin:0 0 1.25rem;padding:.3rem .8rem;border-radius:999px;background:var(--soft);color:var(--accent);font-size:.8125rem;font-weight:600}
 .eyebrow .dot{width:.45rem;height:.45rem;border-radius:50%;background:var(--accent)}
 .hero h1{margin:0 0 1.25rem;font-size:clamp(2.25rem,6vw,3.75rem);line-height:1.05;letter-spacing:-.035em;font-weight:650;text-wrap:balance}
