@@ -65,6 +65,6 @@ ${s.flags.length ? s.flags.map((f) => `- ${f}`).join("\n") : "- None."}
 - Devices and lighting vary between testers, which adds noise.
 - Fixing a disparity means changing a threshold, and the tests run again afterwards.
 `;
-writeFileSync("docs/FAIRNESS_AND_TESTING.md", md);
-console.log(`Wrote docs/FAIRNESS_AND_TESTING.md from ${records.length} results.`);
+writeFileSync("docs/FAIRNESS_RESULTS.md", md);
+console.log(`Wrote docs/FAIRNESS_RESULTS.md from ${records.length} results.`);
 console.log(s.flags.length ? "\nFlags:\n- " + s.flags.join("\n- ") : "\nNo flags.");

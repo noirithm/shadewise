@@ -1,53 +1,42 @@
 # Fairness and testing
 
-_Generated 2026-10-17 from 0 recorded results (0 excluded: no skin tone group given)._
+## The risk
+
+The free on-device check decides whether a photo is good enough to send for analysis. If it refused people with deeper skin tones more often, for example by calling a well-lit deep-skinned face "too dark", it would be unfair, and the product would work worse for them.
+
+## How the checks were designed not to depend on skin tone
+
+- **Brightness** is judged on the whole frame, not on the face. A properly lit deep skin tone has a low absolute brightness, so the face alone cannot tell "deep skin in good light" from "light skin in dim light". Only a near-black floor applies to the face.
+- **Shadows** are measured relative to the face's own median brightness.
+- **Evenness** compares the left and right sides of the face as a ratio.
+- **Blur** is measured on the eye region as ratios (edge crispness relative to local contrast, and the direction of edge loss), so a low-contrast face is not scored as blurrier.
+- **The verdict** uses a perceptual colour difference (CIEDE2000), and the engine's tests use light, medium and deep skin colours as numbers, including the same small offsets giving the same verdict for all three.
 
 ## What was tested
 
-The free on-device capture gate decides whether a photo is good enough to send for analysis. It must not refuse people with deeper skin tones more often than people with lighter skin, so we measure it.
+| Test | Result |
+| --- | --- |
+| Unit tests for the quality checks with light, medium and deep tones, including identical conditions giving identical results and a dark scene being refused for every tone | Pass |
+| Verdict engine with light, medium and deep colour fixtures, boundaries, ties, missing and garbage inputs | Pass |
+| Logic test on 21 **AI-generated** faces (light, medium and deep; 3 good and 4 deliberately bad photos each) | 9 of 9 good photos passed and 12 of 12 bad photos were refused, at every tone group |
+| Real webcam photos of one team member in different light and distances | Used to calibrate thresholds. This is how the blur and brightness rules were corrected |
 
-- **Testers:** real people who agreed to be tested. They chose their own skin tone group (light, medium or deep). The app never guesses skin tone from a face.
-- **Photos taken:** each tester took photos meant to be good, and photos made bad on purpose (too dark, blurry, turned away, too far, uneven light).
-- **What is stored:** only the gate's numbers and verdict plus the tester's own choices. No photos are saved anywhere.
-- **Rule:** a gap of more than 15 percentage points between groups is flagged. A group with fewer than 5 photos is reported as "not enough data", not as a result.
+The AI-generated faces test the logic only. They are **not** evidence about real people and are excluded from the fairness report by design.
 
-## Results
+## What was not done, honestly
 
-### Good photos (lower is better)
+- **Testing with several real people across skin tones, devices and lighting is limited.** Thresholds were set from about a dozen photos: AI-generated faces and webcam shots of one team member. A broader test is the most important next step.
+- A deep-skinned person in a bright room, wearing dark clothes against a dark wall, could make the whole frame look dark and be wrongly asked for more light. This has been identified but not tested with real people. If it happens, the planned fallback is to rely on the YouCam API's own lighting flag.
+- No low-end Android phone or throttled-network test has been recorded.
 
-| Skin tone group | Photos | Passed the gate | Wrongly refused |
-| --- | --- | --- | --- |
-| light | 0 | 0 | n/a |
-| medium | 0 | 0 | n/a |
-| deep | 0 | 0 | n/a |
+## How to run the real-people test
 
-### Bad photos made on purpose (lower is better)
+1. Open `/fairness.html` on the device being tested (it is a tester tool, not linked from the shop, and it never calls the paid API or stores a photo).
+2. The tester chooses their own skin tone group, the lighting and the device, takes about 3 good photos and 4 deliberately bad ones, and saves each result.
+3. Download the CSV, put it in `fairness/`, and run `npm run fairness:report`. It writes `docs/FAIRNESS_RESULTS.md` with the pass rates by group, flags any gap above 15 points, and says "not enough data" for any group with fewer than 5 photos.
 
-| Skin tone group | Photos | Passed the gate | Wrongly passed |
-| --- | --- | --- | --- |
-| light | 0 | 0 | n/a |
-| medium | 0 | 0 | n/a |
-| deep | 0 | 0 | n/a |
+Fixing a disparity means changing a threshold and re-running the tests.
 
-### Why good photos were refused
+## Other tests
 
-- light: none
-- medium: none
-- deep: none
-
-## Flags
-
-- Not enough good photos for light skin (0 of 5 needed).
-- Not enough good photos for medium skin (0 of 5 needed).
-- Not enough good photos for deep skin (0 of 5 needed).
-- Not enough bad photos for light skin (0 of 5 needed).
-- Not enough bad photos for medium skin (0 of 5 needed).
-- Not enough bad photos for deep skin (0 of 5 needed).
-
-## Limitations
-
-- Small numbers: a handful of testers cannot represent everyone, and three skin tone groups are a coarse split.
-- Skin tone group is the tester's own choice, so groups are not exactly comparable between people.
-- Thresholds in the gate are provisional until a flag-free run with enough photos per group.
-- Devices and lighting vary between testers, which adds noise.
-- Fixing a disparity means changing a threshold, and the tests run again afterwards.
+Unit and contract tests, error-state tests with a stubbed YouCam API, the spend guard and refund rules, and a browser check of every shop page under the security policy (no violations, no sideways scrolling at phone width). The face engine was also loaded in a real browser under the policy, which found and fixed a blocking rule before release.
