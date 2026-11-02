@@ -2,11 +2,25 @@ import type { NextConfig } from "next";
 import { securityHeaders } from "./src/config/security";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  devIndicators: false,
+
   cacheComponents: true,
+
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders() }];
+    const headers = securityHeaders();
+
+    if (headers.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        source: "/:path*",
+        headers,
+      },
+    ];
   },
+
   partialPrefetching: true,
 };
 
