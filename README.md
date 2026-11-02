@@ -79,7 +79,6 @@ Vercel: import the repository, set the Build Command to `npm run build`, and set
 - [How the verdict works](docs/VERDICT_LOGIC.md)
 - [Privacy and limitations](docs/PRIVACY_AND_LIMITATIONS.md)
 - [Fairness and testing](docs/FAIRNESS_AND_TESTING.md)
-- [Demo video script](docs/DEMO.md) and [Devpost text](docs/DEVPOST.md)
 
 ## Known limitations
 
